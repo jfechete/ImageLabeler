@@ -2,11 +2,13 @@ import sys
 import gi
 import os
 import image
+import csv
 gi.require_version('Gtk', '4.0')
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib, Gio
 
 LEFT_KEY = 65361
 RIGHT_KEY = 65363
+IMG_KEY = "image"
 
 def main():
     app = MyApp(application_id="com.github.jfechete.ImageLabeler")
@@ -39,6 +41,20 @@ class MainWindow(Gtk.ApplicationWindow):
         self._img_box.append(self._current_img_label)
         self._img_box.append(self._next_img_button)
         self._main_box.append(self._img_box)
+
+        self._csv_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self._csv_export_button = Gtk.Button(label="Export csv file.")
+        self._csv_export_button.connect("clicked", self.export_csv)
+        self._csv_box.append(self._csv_export_button)
+        self._csv_save_dialog = Gtk.FileDialog.new()
+        self._csv_save_dialog.set_title("Save csv file")
+        csv_filter = Gtk.FileFilter()
+        csv_filter.set_name("csv file")
+        csv_filter.add_mime_type("text/csv")
+        csv_filters = Gio.ListStore.new(Gtk.FileFilter)
+        csv_filters.append(csv_filter)
+        self._csv_save_dialog.set_filters(csv_filters)
+        self._main_box.append(self._csv_box)
 
         self.keycont = Gtk.EventControllerKey()
         self.keycont.connect("key-pressed", self.handle_keypress)
@@ -125,7 +141,32 @@ class MainWindow(Gtk.ApplicationWindow):
             self._img_index = 0
         else:
             self._img_index = written.index(False)
+
+        self._csv_save_dialog.set_initial_folder(Gio.File.new_for_path(
+            os.getcwd()
+        ))
         self.refresh_displayed_image()
+
+    def export_csv(self, button):
+        self._csv_save_dialog.save(self, None, self._export_csv_callback)
+
+    def _export_csv_callback(self, dialog, result):
+        try:
+            result = self._csv_save_dialog.save_finish(result).get_path()
+            if not result.endswith(".csv"):
+                result += ".csv"
+            fields = list(self._labels_description.keys())
+            data = [
+                {k:img.labels[k] for k in fields} | {IMG_KEY: img.location}
+                for img in self._imgs if img.labels.complete
+            ]
+            fields = [IMG_KEY] + fields
+            with open(result, "w") as csv_file:
+                csv_writer = csv.DictWriter(csv_file, fieldnames=fields)
+                csv_writer.writeheader()
+                csv_writer.writerows(data)
+        except GLib.Error as e:
+            pass
 
     def handle_keypress(self, keycont, keycode, _, modifiers):
         if keycode == LEFT_KEY:
