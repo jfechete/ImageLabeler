@@ -55,9 +55,40 @@ class ImageLabels:
         for key, value in self._description.items():
             if "default" in value:
                 self._values[key] = value["default"]
-        if os.path.isfile(json_file):
+        self._json_file = json_file
+        if self.writen:
             with open(json_file) as json_fb:
-                saved_state = json.load(json_fb)
+                self._values = json.load(json_fb)
+
+    def __contains__(self, key):
+        return key in self._values
+
+    def __getitem__(self, key):
+        return self._values[key]
+
+    def __setitem__(self, key, value):
+        if key not in self._description:
+            raise ValueError("Unknown key")
+        self._values[key] = value
+
+        self.write_if_complete()
+
+    def write_if_complete(self):
+        if self.complete:
+            with open(self._json_file, "w") as json_fb:
+                json.dump(self._values, json_fb)
+
+    @property
+    def complete(self):
+        complete = True
+        for key in self._description:
+            if key not in self._values:
+                complete = False
+        return complete
+
+    @property
+    def writen(self):
+        return os.path.isfile(self._json_file)
 
 class LabelType(Enum):
     BOOL = 1
@@ -65,7 +96,7 @@ class LabelType(Enum):
 
 def get_images(labels_description=None):
     return [
-        Image(file, labels_description=labels_description) 
+        Image(file, labels_description=labels_description)
         for file in sorted(os.listdir()) if any([
             file.lower().endswith("." + e) for e in IMAGE_EXTENSIONS
         ])

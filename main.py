@@ -19,6 +19,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.set_child(self._main_box)
 
         self._labels_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self._labels_widgets = {}
         self._main_box.append(self._labels_box)
 
         self._img_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -64,17 +65,39 @@ class MainWindow(Gtk.ApplicationWindow):
             (self._img_index+1)%len(self._imgs)
         ].location)
 
+        for key, data in self._labels_description.items():
+            if data["type"] == image.LabelType.BOOL:
+                if key in self._imgs[self._img_index].labels:
+                    self._labels_widgets[key].set_active(
+                        self._imgs[self._img_index].labels[key]
+                    )
+                else:
+                    self._labels_widgets[key].set_active(False)
+            elif data["type"] == image.LabelType.RADIO:
+                if key in self._imgs[self._img_index].labels:
+                    self._labels_widgets[key][
+                        self._imgs[self._img_index].labels[key]
+                    ].set_active(True)
+                else:
+                    for radio_button in self._labels_widgets[key].values():
+                        radio_button.set_active(False)
+        self._imgs[self._img_index].labels.write_if_complete()
+
     def reload_labels_ui(self):
         while child := self._labels_box.get_last_child():
             self._labels_box.remove(child)
+        self._labels_widgets.clear()
 
         for key, label_data in self._labels_description.items():
             label_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
             if label_data["type"] == image.LabelType.BOOL:
                 checkbox = Gtk.CheckButton(label=key)
+                checkbox.connect("toggled", self._handle_checkbox_change, key)
+                self._labels_widgets[key] = checkbox
                 label_box.append(checkbox)
             elif label_data["type"] == image.LabelType.RADIO:
                 prompt = Gtk.Label(label="{}: ".format(key))
+                self._labels_widgets[key] = {}
                 label_box.append(prompt)
 
                 initial_radio = None
@@ -84,6 +107,10 @@ class MainWindow(Gtk.ApplicationWindow):
                         initial_radio = radio_button
                     else:
                         radio_button.set_group(initial_radio)
+                    radio_button.connect(
+                        "toggled", self._handle_radio_change, key, option
+                    )
+                    self._labels_widgets[key][option] = radio_button
                     label_box.append(radio_button)
             self._labels_box.append(label_box)
 
@@ -93,7 +120,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self._imgs = image.get_images(
             labels_description=self._labels_description
         )
-        self._img_index = 0
+        written = [i.labels.writen for i in self._imgs]
+        if all(written):
+            self._img_index = 0
+        else:
+            self._img_index = written.index(False)
         self.refresh_displayed_image()
 
     def handle_keypress(self, keycont, keycode, _, modifiers):
@@ -104,6 +135,13 @@ class MainWindow(Gtk.ApplicationWindow):
             self.rotate_right()
             return True
         return False
+
+    def _handle_radio_change(self, radio, key, value):
+        if radio.get_active():
+            self._imgs[self._img_index].labels[key] = value
+
+    def _handle_checkbox_change(self, checbox, key):
+        self._imgs[self._img_index].labels[key] = checbox.get_active()
 
 class MyApp(Gtk.Application):
     def __init__(self, **kwargs):
