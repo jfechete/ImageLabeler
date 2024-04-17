@@ -20,6 +20,15 @@ class MainWindow(Gtk.ApplicationWindow):
         self._main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.set_child(self._main_box)
 
+        self._header = Gtk.HeaderBar()
+        self.set_titlebar(self._header)
+        self._menu = Gio.Menu.new()
+        self._open_dialog = Gtk.FileDialog.new()
+        self._open_dialog.set_title("Open folder")
+        self._open_button = Gtk.Button(label="Open")
+        self._open_button.connect("clicked", lambda _: self.open_folder())
+        self._header.pack_start(self._open_button)
+
         self._labels_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self._labels_widgets = {}
         self._main_box.append(self._labels_box)
@@ -60,7 +69,38 @@ class MainWindow(Gtk.ApplicationWindow):
         self.keycont.connect("key-pressed", self.handle_keypress)
         self.add_controller(self.keycont)
 
-        self.load_images()
+        loaded = self.load_images()
+        if not loaded:
+            self.open_folder()
+
+    def open_folder(self):
+        self._open_dialog.select_folder(self, None, self._open_callback)
+
+    def _open_callback(self, dialog, result):
+        try:
+            result = self._open_dialog.select_folder_finish(result).get_path()
+            os.chdir(result)
+            result = self.load_images()
+            if not result:
+                self.failed_open()
+        except GLib.Error as e:
+            pass
+
+    def failed_open(self):
+        self._failed_open_dialog = Gtk.AlertDialog()
+        self._failed_open_dialog.set_message("Invalid")
+        self._failed_open_dialog.set_detail(
+            "Invalid folder selected, can't open"
+        )
+        self._failed_open_dialog.set_modal(True)
+        self._failed_open_dialog.set_buttons(["OK"])
+        self._failed_open_dialog.choose(
+            self, None, self._failed_open_callback
+        )
+
+    def _failed_open_callback(self, dialog, result):
+        self._failed_open_dialog.choose_finish(result)
+        self.open_folder()
 
     def rotate_right(self):
         self._img_index += 1
@@ -131,11 +171,16 @@ class MainWindow(Gtk.ApplicationWindow):
             self._labels_box.append(label_box)
 
     def load_images(self):
-        self._labels_description = image.ImageLabels.get_labels_description()
+        try:
+            self._labels_description = image.ImageLabels.get_labels_description()
+        except KeyError as e:
+            return False
         self.reload_labels_ui()
         self._imgs = image.get_images(
             labels_description=self._labels_description
         )
+        if len(self._imgs) == 0:
+            return False
         written = [i.labels.writen for i in self._imgs]
         if all(written):
             self._img_index = 0
@@ -146,6 +191,7 @@ class MainWindow(Gtk.ApplicationWindow):
             os.getcwd()
         ))
         self.refresh_displayed_image()
+        return True
 
     def export_csv(self, button):
         self._csv_save_dialog.save(self, None, self._export_csv_callback)
