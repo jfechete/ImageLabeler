@@ -2,12 +2,11 @@ import sys
 import gi
 import os
 import image
+import hotkeys
 import csv
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GLib, Gio
 
-LEFT_KEY = 65361
-RIGHT_KEY = 65363
 IMG_KEY = "image"
 
 def main():
@@ -71,7 +70,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._main_box.append(self._csv_box)
 
         self.keycont = Gtk.EventControllerKey()
-        self.keycont.connect("key-pressed", self.handle_keypress)
+        self.keycont.connect("key-pressed", self._handle_keypress)
         self.add_controller(self.keycont)
 
         loaded = self.load_images()
@@ -182,6 +181,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._labels_description = image.ImageLabels.get_labels_description()
         except KeyError as e:
             return False
+        hotkeys.add_hotkeys(self._labels_description)
         self.reload_labels_ui()
         self._imgs = image.get_images(
             labels_description=self._labels_description
@@ -222,13 +222,30 @@ class MainWindow(Gtk.ApplicationWindow):
         except GLib.Error as e:
             pass
 
-    def handle_keypress(self, keycont, keycode, _, modifiers):
-        if keycode == LEFT_KEY:
+    def _handle_keypress(self, keycont, keycode, _, modifiers):
+        if keycode == hotkeys.LEFT_KEY:
             self.rotate_left()
             return True
-        elif keycode == RIGHT_KEY:
+        elif keycode == hotkeys.RIGHT_KEY:
             self.rotate_right()
             return True
+        for label, label_data in self._labels_description.items():
+            if label_data["type"] == image.LabelType.BOOL:
+                if "key" in label_data and chr(keycode) == label_data["key"]:
+                    self._labels_widgets[label].set_active(
+                        not self._labels_widgets[label].get_active()
+                    )
+                    return True
+            elif label_data["type"] == image.LabelType.RADIO:
+                if (
+                    "keys" in label_data and
+                    chr(keycode) in label_data["keys"]
+                ):
+                    selected = label_data["options"][label_data["keys"].index(
+                        chr(keycode)
+                    )]
+                    self._labels_widgets[label][selected].set_active(True)
+                    return True
         return False
 
     def update_images_labeled(self):
