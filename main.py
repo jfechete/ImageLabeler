@@ -3,7 +3,7 @@ import gi
 import os
 import image
 import csv
-gi.require_version('Gtk', '4.0')
+gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GLib, Gio
 
 LEFT_KEY = 65361
@@ -28,6 +28,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self._open_button = Gtk.Button(label="Open")
         self._open_button.connect("clicked", lambda _: self.open_folder())
         self._header.pack_start(self._open_button)
+
+        self._labeled_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self._labeled_label = Gtk.Label(label="")
+        self._labeled_box.append(self._labeled_label)
+        self._main_box.append(self._labeled_box)
 
         self._labels_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self._labels_widgets = {}
@@ -104,10 +109,12 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def rotate_right(self):
         self._img_index += 1
+        self._img_index = self._img_index%len(self._imgs)
         self.refresh_displayed_image()
 
     def rotate_left(self):
         self._img_index -= 1
+        self._img_index = self._img_index%len(self._imgs)
         self.refresh_displayed_image()
 
     def refresh_displayed_image(self):
@@ -191,6 +198,7 @@ class MainWindow(Gtk.ApplicationWindow):
             os.getcwd()
         ))
         self.refresh_displayed_image()
+        self.update_images_labeled()
         return True
 
     def export_csv(self, button):
@@ -223,17 +231,25 @@ class MainWindow(Gtk.ApplicationWindow):
             return True
         return False
 
+    def update_images_labeled(self):
+        self._labeled_label.set_text("{}/{} images labeled".format(
+            [img.labels.writen for img in self._imgs].count(True),
+            len(self._imgs)
+        ))
+
     def _handle_radio_change(self, radio, key, value):
         if radio.get_active():
             self._imgs[self._img_index].labels[key] = value
+        self.update_images_labeled()
 
     def _handle_checkbox_change(self, checbox, key):
         self._imgs[self._img_index].labels[key] = checbox.get_active()
+        self.update_images_labeled()
 
 class MyApp(Gtk.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.connect('activate', self.on_activate)
+        self.connect("activate", self.on_activate)
 
     def on_activate(self, app):
         self.win = MainWindow(application=app)
