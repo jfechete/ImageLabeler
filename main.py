@@ -144,6 +144,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     for radio_button in self._labels_widgets[key].values():
                         radio_button.set_active(False)
         self._imgs[self._img_index].labels.write_if_complete()
+        self.update_images_labeled()
 
     def reload_labels_ui(self):
         while child := self._labels_box.get_last_child():
