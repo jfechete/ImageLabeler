@@ -1,6 +1,10 @@
 # Image Labeler
 I made this to more easily label images for machine learning projects.  
-To use it, run main.py and then select a folder that contains image files and a "config.ini" file in it.
+
+## usage
+To install, simply install all needed modules from requirements.txt using pip. Once done, run the main.py file using Python.
+You will then be prompted to select a folder, choose one that contains image files and a "config.ini" file in it.
+You can then begin labeling images. The center image is the one currently being labeled, and you can click any side image to cycle, or use the arrow keys. The possible labels you can assign are at the top.
 
 ## config.ini
 The "config.ini" file can have two sections.  
@@ -10,3 +14,6 @@ The second section is optional, and should be named "hotkeys". Each key there sh
 
 ## output
 As images are labeled, if all options have a value then it will be written to a .json file. It will have the label data and have the same name as the image, just suffixed with .json. Once many are labeled, you can also click the button at the bottom to export a .csv file of all the images.  
+
+## screenshot
+![ExampleLabeling](https://github.com/user-attachments/assets/aea2f487-bcf3-4d1f-a0ee-e99f65c839bd)
