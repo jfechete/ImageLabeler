@@ -7,7 +7,11 @@ RIGHT_KEY = 65363
 DEFAULT_KEYS = list("asdfgqwertzxcvb")
 
 def add_hotkeys(labels_description):
-    hotkeys_config = config.get_config()["hotkeys"]
+    config_table = config.get_config()
+    if "hotkeys" in config_table:
+        hotkeys_config = config_table["hotkeys"]
+    else:
+        hotkeys_config = {}
     auto_keys = DEFAULT_KEYS.copy()
     for label, label_data in labels_description.items():
         if label_data["type"] == image.LabelType.BOOL:
